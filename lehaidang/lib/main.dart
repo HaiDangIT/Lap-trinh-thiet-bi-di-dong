@@ -66,16 +66,28 @@ class AuthWrapper extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<AuthService>(
       builder: (context, authService, child) {
+        print('🔍 AuthWrapper - isLoggedIn: ${authService.isLoggedIn}');
+        print(
+          '🔍 AuthWrapper - currentUser: ${authService.currentUser?.email}',
+        );
+        print('🔍 AuthWrapper - role: ${authService.currentUser?.role}');
+        print('🔍 AuthWrapper - isAdminRole: ${authService.isAdminRole}');
+        print('🔍 AuthWrapper - isManager: ${authService.isManager}');
+
         if (authService.isLoggedIn) {
           // Route based on user role
           if (authService.isAdminRole) {
+            print('✅ Routing to AdminDashboardScreen');
             return const AdminDashboardScreen();
           } else if (authService.isManager) {
+            print('✅ Routing to ManagerDashboardScreen');
             return const ManagerDashboardScreen();
           } else {
+            print('✅ Routing to UserCalendarScreen');
             return const UserCalendarScreen();
           }
         }
+        print('❌ Not logged in - showing LoginScreen');
         return const LoginScreen();
       },
     );

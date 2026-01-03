@@ -44,27 +44,85 @@ class _LoginScreenState extends State<LoginScreen> {
 
         // Check if 2FA is required
         if (result['requires2FA'] == true) {
+          setState(() => _isLoading = false);
+
           // Navigate to OTP verification screen
-          Navigator.of(context).push(
+          print('🔍 Navigating to OTP screen...');
+          final navigator = Navigator.of(context);
+          final verified = await navigator.push<bool>(
             MaterialPageRoute(
-              builder: (_) => OTPVerificationScreen(
+              builder: (otpContext) => OTPVerificationScreen(
                 userId: result['userId'],
                 email: result['email'],
-                onVerified: () async {
-                  // After 2FA verified, save user and navigate
-                  authService.setCurrentUserFromApi(result);
-
-                  if (mounted) {
-                    // Pop all and go to root - AuthWrapper will handle navigation
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(builder: (_) => const AuthWrapper()),
-                      (route) => false,
-                    );
-                  }
+                onVerified: () {
+                  // OTP screen will handle pop itself
+                  // This callback is just for logging or other side effects
+                  print(
+                    '✅ onVerified callback called (OTP screen will pop itself)',
+                  );
                 },
               ),
             ),
           );
+
+          print('🔍 Returned from OTP screen with verified: $verified');
+
+          // After OTP screen closed, check if verified
+          if (verified == true && mounted) {
+            print('✅ Verification confirmed, loading user profile...');
+            setState(() => _isLoading = true);
+
+            try {
+              // Get full user profile after 2FA verification
+              print('🔍 Getting user profile for userId: ${result['userId']}');
+
+              Map<String, dynamic> userData;
+              try {
+                userData = await authApiService.getUserProfile(
+                  result['userId'],
+                );
+                print('✅ User profile retrieved: $userData');
+              } catch (profileError) {
+                print('⚠️ getUserProfile failed: $profileError');
+                print('📝 Using fallback: creating user from available data');
+                // Fallback: create user data from what we have
+                userData = {
+                  'id': result['userId'],
+                  'email': result['email'],
+                  'fullName': result['email'].split(
+                    '@',
+                  )[0], // Use email prefix as name
+                };
+              }
+
+              print('🔍 Final user data: $userData');
+
+              if (mounted) {
+                await authService.setCurrentUserFromApi(userData);
+                print('✅ User saved to AuthService');
+
+                // Wait a bit to ensure state is updated
+                await Future.delayed(const Duration(milliseconds: 100));
+
+                // Pop all and go to root - AuthWrapper will handle navigation
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const AuthWrapper()),
+                  (route) => false,
+                );
+              }
+            } catch (e) {
+              print('❌ Error in 2FA post-verification: $e');
+              if (mounted) {
+                setState(() => _isLoading = false);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Lỗi khi tải thông tin người dùng: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            }
+          }
         } else {
           // Normal login without 2FA - save user from API result
           authService.setCurrentUserFromApi(result);

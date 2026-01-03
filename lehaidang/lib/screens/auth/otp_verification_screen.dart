@@ -72,13 +72,20 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                     : '✅ Xác thực thành công!',
               ),
               backgroundColor: Colors.green,
-              duration: const Duration(seconds: 2),
+              duration: const Duration(seconds: 1),
             ),
           );
 
-          // Wait for snackbar then callback
-          await Future.delayed(const Duration(milliseconds: 500));
-          widget.onVerified();
+          // Wait a bit then pop with true
+          await Future.delayed(const Duration(milliseconds: 300));
+
+          if (mounted) {
+            // Pop this screen with success=true
+            Navigator.of(context).pop(true);
+
+            // Call the callback if still needed for other logic
+            widget.onVerified();
+          }
         } else {
           setState(() {
             _errorMessage =

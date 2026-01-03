@@ -38,6 +38,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
 
+    print('🔍 AdminDashboard - User: ${authService.currentUser?.email}');
+    print('🔍 AdminDashboard - Role: ${authService.currentUser?.role}');
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Admin Dashboard'),
