@@ -1,0 +1,209 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String        @id @default(uuid())
+  email         String        @unique
+  passwordHash  String        @map("password_hash")
+  fullName      String?       @map("full_name")
+  timezone      String        @default("UTC")
+  
+  calendars     Calendar[]
+  eventsCreated Event[]       @relation("EventCreator")
+  attendees     Attendee[]
+  userRoles     UserRole[]
+  twoFactor     TwoFactor?
+  
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+model TwoFactor {
+  id              String    @id @default(uuid())
+  
+  userId          String    @unique @map("user_id")
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  secret          String    // TOTP secret key
+  isEnabled       Boolean   @default(false) @map("is_enabled")
+  backupCodes     String[]  @map("backup_codes") // Array of backup codes
+  
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@map("two_factor")
+}
+
+model Role {
+  id          String       @id @default(uuid())
+  name        String       @unique
+  description String?
+  
+  userRoles   UserRole[]
+  roleClaims  RoleClaim[]
+  
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  @@map("roles")
+}
+
+model UserRole {
+  id        String   @id @default(uuid())
+  
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  roleId    String   @map("role_id")
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, roleId])
+  @@index([userId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+model RoleClaim {
+  id          String   @id @default(uuid())
+  claimType   String   @map("claim_type")
+  claimValue  String   @map("claim_value")
+  
+  roleId      String   @map("role_id")
+  role        Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([roleId, claimType, claimValue])
+  @@index([roleId])
+  @@map("role_claims")
+}
+
+model Calendar {
+  id         String   @id @default(uuid())
+  name       String
+  colorCode  String   @default("#039BE5") @map("color_code")
+  isPrimary  Boolean  @default(false) @map("is_primary")
+  
+  userId     String   @map("user_id")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  events     Event[]
+  
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@map("calendars")
+}
+
+model Event {
+  id            String    @id @default(uuid())
+  title         String
+  description   String?
+  location      String?
+  startTime     DateTime  @map("start_time")
+  endTime       DateTime  @map("end_time")
+  isAllDay      Boolean   @default(false) @map("is_all_day")
+  isRecurring   Boolean   @default(false) @map("is_recurring")
+  
+  calendarId    String    @map("calendar_id")
+  calendar      Calendar  @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+  
+  creatorId     String    @map("creator_id")
+  creator       User      @relation("EventCreator", fields: [creatorId], references: [id])
+  
+  recurrenceRule RecurrenceRule?
+  attendees      Attendee[]
+  reminders      Reminder[]
+  exceptions     EventException[]
+  
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@index([calendarId])
+  @@index([creatorId])
+  @@index([startTime, endTime])
+  @@map("events")
+}
+
+model RecurrenceRule {
+  id            String    @id @default(uuid())
+  frequency     String
+  interval      Int       @default(1)
+  byDay         String?   @map("by_day")
+  byMonthDay    String?   @map("by_month_day")
+  byMonth       String?   @map("by_month")
+  untilDate     DateTime? @map("until_date")
+  count         Int?
+  
+  eventId       String    @unique @map("event_id")
+  event         Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@map("recurrence_rules")
+}
+
+model EventException {
+  id                String    @id @default(uuid())
+  originalStartTime DateTime  @map("original_start_time")
+  newStartTime      DateTime? @map("new_start_time")
+  newEndTime        DateTime? @map("new_end_time")
+  updatedTitle      String?   @map("updated_title")
+  updatedLocation   String?   @map("updated_location")
+  isCancelled       Boolean   @default(false) @map("is_cancelled")
+  
+  eventId           String    @map("event_id")
+  event             Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  @@unique([eventId, originalStartTime])
+  @@map("event_exceptions")
+}
+
+model Attendee {
+  id             String   @id @default(uuid())
+  email          String
+  name           String?
+  responseStatus String   @default("needsAction") @map("response_status")
+  
+  eventId        String   @map("event_id")
+  event          Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  
+  userId         String?  @map("user_id")
+  user           User?    @relation(fields: [userId], references: [id])
+  
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@unique([eventId, email])
+  @@map("attendees")
+}
+
+model Reminder {
+  id            String   @id @default(uuid())
+  minutesBefore Int      @map("minutes_before")
+  method        String   @default("email")
+  
+  eventId       String   @map("event_id")
+  event         Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("reminders")
+}
