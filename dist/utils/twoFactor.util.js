@@ -1,6 +1,6 @@
 import speakeasy from "speakeasy";
 import QRCode from "qrcode";
-import { randomBytes } from "crypto";
+import { randomBytes, createHash } from "crypto";
 /**
  * Generate 2FA secret and QR code
  */
@@ -47,8 +47,7 @@ export function generateBackupCodes(count = 10) {
  * Hash backup code for storage
  */
 export function hashBackupCode(code) {
-    const crypto = require("crypto");
-    return crypto.createHash("sha256").update(code).digest("hex");
+    return createHash("sha256").update(code).digest("hex");
 }
 /**
  * Verify backup code
