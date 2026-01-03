@@ -25,12 +25,19 @@ export async function generateTwoFactorSecret(userEmail) {
  * Verify TOTP token
  */
 export function verifyTwoFactorToken(token, secret) {
-    return speakeasy.totp.verify({
+    console.log("🔐 Verifying 2FA token:");
+    console.log("  - Token:", token);
+    console.log("  - Secret:", secret ? `${secret.substring(0, 8)}...` : "undefined");
+    console.log("  - Token length:", token.length);
+    console.log("  - Secret length:", secret?.length);
+    const result = speakeasy.totp.verify({
         secret: secret,
         encoding: "base32",
         token: token,
-        window: 2, // Allow 2 time steps before/after for clock drift
+        window: 6, // Increased window for better tolerance (was 2)
     });
+    console.log("  - Verification result:", result);
+    return result;
 }
 /**
  * Generate backup codes
